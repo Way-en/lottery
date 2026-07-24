@@ -332,6 +332,33 @@
     color: #888;
     animation: bounceIn 0.6s ease-out 0.3s both;
   }
+  .winner-tier {
+    margin: 12px 0;
+    padding: 10px 14px;
+    background: rgba(240,192,96,0.05);
+    border-radius: 10px;
+    border: 1px solid rgba(240,192,96,0.12);
+    animation: bounceIn 0.6s ease-out both;
+  }
+  .winner-tier:nth-child(1) { animation-delay: 0.0s; }
+  .winner-tier:nth-child(2) { animation-delay: 0.2s; }
+  .winner-tier:nth-child(3) { animation-delay: 0.4s; }
+  .winner-tier:nth-child(4) { animation-delay: 0.6s; }
+  .winner-tier-name {
+    font-size: 1em;
+    font-weight: 700;
+    color: var(--gold);
+    margin-bottom: 4px;
+  }
+  .winner-tier-names {
+    font-size: 1.1em;
+    color: #fff;
+    font-weight: 600;
+  }
+  .winner-tier-empty {
+    font-size: 0.85em;
+    color: #666;
+  }
 
   /* 彩带 */
   canvas#confetti {
@@ -556,7 +583,7 @@
     <!-- 中奖展示 -->
     <div class="winner-showcase" id="winnerShowcase">
       <div class="winner-crown">👑</div>
-      <div class="winner-name" id="winnerName">---</div>
+      <div id="winnerList"></div>
       <div class="winner-label">🎉 恭喜以上幸运儿中奖！</div>
     </div>
 
@@ -605,10 +632,33 @@
 <button class="admin-toggle" id="adminToggle" title="管理" onclick="toggleAdmin()">⚙</button>
 <div class="admin-panel" id="adminPanel">
   <h3>🔧 抽奖管理</h3>
-  <label>🎁 奖品名称</label>
-  <input type="text" id="prizeNameInput" placeholder="例如：iPhone 15 Pro Max" maxlength="30">
-  <label>👑 中奖人数</label>
-  <input type="number" id="winnerCountInput" min="1" max="100" value="1" style="width:100%">
+  <label>🏆 奖项设置</label>
+  <div id="prizeConfigs">
+    <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center;">
+      <span style="color:#888;font-size:0.7em;min-width:40px;">🥇</span>
+      <input type="text" id="prize0name" value="一等奖" maxlength="12" style="flex:2;margin-bottom:0;">
+      <input type="number" id="prize0count" value="1" min="0" max="100" style="flex:1;width:auto;margin-bottom:0;text-align:center;" title="中奖人数">
+      <span style="color:#666;font-size:0.65em;">人</span>
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center;">
+      <span style="color:#888;font-size:0.7em;min-width:40px;">🥈</span>
+      <input type="text" id="prize1name" value="二等奖" maxlength="12" style="flex:2;margin-bottom:0;">
+      <input type="number" id="prize1count" value="2" min="0" max="100" style="flex:1;width:auto;margin-bottom:0;text-align:center;">
+      <span style="color:#666;font-size:0.65em;">人</span>
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center;">
+      <span style="color:#888;font-size:0.7em;min-width:40px;">🥉</span>
+      <input type="text" id="prize2name" value="三等奖" maxlength="12" style="flex:2;margin-bottom:0;">
+      <input type="number" id="prize2count" value="3" min="0" max="100" style="flex:1;width:auto;margin-bottom:0;text-align:center;">
+      <span style="color:#666;font-size:0.65em;">人</span>
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center;">
+      <span style="color:#888;font-size:0.7em;min-width:40px;">🎁</span>
+      <input type="text" id="prize3name" value="参与奖" maxlength="12" style="flex:2;margin-bottom:0;">
+      <input type="number" id="prize3count" value="5" min="0" max="100" style="flex:1;width:auto;margin-bottom:0;text-align:center;">
+      <span style="color:#666;font-size:0.65em;">人</span>
+    </div>
+  </div>
   <label>📅 开奖时间</label>
   <input type="datetime-local" id="drawTimeInput">
   <div class="admin-actions">
@@ -684,8 +734,9 @@ function updateDrawTimeText() {
   const d = new Date(state.drawTime);
   document.getElementById('draw-time-text').textContent =
     d.toLocaleString('zh-CN', { month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' });
+  const prizes = state.prizes || [];
   document.querySelector('.prize-info strong:last-of-type').textContent =
-    `🎁 ${state.prizeName}（${state.winnerCount}人）`;
+    prizes.map(p => `${p.name}×${p.count}`).join(' ｜ ');
 }
 
 function updateParticipants() {
@@ -708,10 +759,12 @@ function updateStatusBanner() {
   if (!state) return;
   const banner = document.getElementById('statusBanner');
   banner.className = 'status-banner';
-  if (state.drawn && state.winners.length > 0) {
+  const prizes = state.prizes || [];
+  const totalWinners = prizes.reduce((s, p) => s + (p.winners || []).length, 0);
+  if (state.drawn && totalWinners > 0) {
     banner.className += ' status-ended';
-    banner.textContent = `🎉 已开奖！${state.winners.length} 位幸运儿诞生`;
-  } else if (state.drawn && state.winners.length === 0) {
+    banner.textContent = `🎉 已开奖！${totalWinners} 位幸运儿诞生`;
+  } else if (state.drawn && totalWinners === 0) {
     banner.className += ' status-ended';
     banner.textContent = '😔 本期无人中奖';
   } else if (Date.now() >= new Date(state.drawTime).getTime()) {
@@ -738,9 +791,7 @@ function updateEntryVisibility() {
     resetBtn.style.display = 'inline-block';
     joinBtn.disabled = true;
     document.getElementById('nameInput').disabled = true;
-    if (state.winners.length > 0) {
-      document.getElementById('winnerName').textContent = state.winners.join('  ');
-    }
+    renderWinners();
   } else if (isDrawing || Date.now() >= new Date(state.drawTime).getTime()) {
     entrySection.style.display = 'block';
     drawStage.classList.add('active');
@@ -819,6 +870,22 @@ document.getElementById('nameInput').addEventListener('keydown', function(e) {
 });
 
 // ===== 开奖结果展示 =====
+function renderWinners() {
+  const prizes = state.prizes || [];
+  const container = document.getElementById('winnerList');
+  container.innerHTML = prizes.map((p, i) => {
+    const delay = i * 0.2;
+    const hasWinners = p.winners && p.winners.length > 0;
+    return `
+      <div class="winner-tier" style="animation-delay:${delay}s">
+        <div class="winner-tier-name">${p.name}（${p.count}人）</div>
+        <div class="${hasWinners ? 'winner-tier-names' : 'winner-tier-empty'}">
+          ${hasWinners ? p.winners.join('　') : '（无人中奖）'}
+        </div>
+      </div>`;
+  }).join('');
+}
+
 function showDrawResult() {
   if (!state || !state.drawn) return;
   isDrawing = false;
@@ -826,27 +893,59 @@ function showDrawResult() {
   const slotName = document.getElementById('slotName');
   const drawStatus = document.getElementById('drawStatusText');
   const participants = state.participants || [];
+  const prizes = state.prizes || [];
 
-  // 滚动动画（纯视觉效果，结果已由服务器决定）
-  let rollCount = 0;
-  const totalRolls = 20 + Math.floor(Math.random() * 10);
-  const rollInterval = setInterval(() => {
-    const randomIdx = Math.floor(Math.random() * Math.max(1, participants.length));
-    slotName.textContent = participants[randomIdx] || '🎰';
-    rollCount++;
+  if (participants.length === 0) {
+    slotName.textContent = '（无人参与）';
+    slotName.style.color = '#888';
+    drawStatus.textContent = '😔 本期无人中奖';
+    updateAll();
+    return;
+  }
 
-    if (rollCount >= totalRolls) {
-      clearInterval(rollInterval);
-      slotName.textContent = state.winners.length > 0 ? state.winners.join('  ') : '（无人中奖）';
+  // 逐个奖项依次滚动
+  let prizeIndex = 0;
+
+  function rollPrize() {
+    if (prizeIndex >= prizes.length) {
+      // 全部抽完
       slotName.style.color = '#f0c060';
-      drawStatus.textContent = state.winners.length > 0 ? '🎉 恭喜中奖！' : '😔 本期无人中奖';
-
-      setTimeout(() => {
-        updateAll();
-        if (state.winners.length > 0) launchConfetti();
-      }, 1500);
+      drawStatus.textContent = '🎉 恭喜以上幸运儿中奖！';
+      updateAll();
+      launchConfetti();
+      return;
     }
-  }, 80);
+
+    const prize = prizes[prizeIndex];
+    drawStatus.textContent = `🎰 正在抽取：${prize.name}...`;
+
+    // 这个奖项的候选池（排除之前奖项的中奖者）
+    let pool = [...participants];
+    for (let i = 0; i < prizeIndex; i++) {
+      pool = pool.filter(n => !(prizes[i].winners || []).includes(n));
+    }
+
+    if (pool.length === 0 || prize.count === 0 || (prize.winners || []).length === 0) {
+      prizeIndex++;
+      setTimeout(rollPrize, 500);
+      return;
+    }
+
+    let rollCount = 0;
+    const totalRolls = 15 + Math.floor(Math.random() * 8);
+    const rollInterval = setInterval(() => {
+      slotName.textContent = pool[Math.floor(Math.random() * pool.length)];
+      rollCount++;
+      if (rollCount >= totalRolls) {
+        clearInterval(rollInterval);
+        slotName.textContent = (prize.winners || []).join('  ') || '（无人中奖）';
+        prizeIndex++;
+        setTimeout(rollPrize, 1500);
+      }
+    }, 80);
+  }
+
+  rollPrize();
 }
 
 function launchConfetti() {
@@ -1037,23 +1136,34 @@ function updateAdminPanelTime() {
   const d = new Date(state.drawTime);
   const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
   document.getElementById('drawTimeInput').value = local;
-  document.getElementById('winnerCountInput').value = state.winnerCount || 1;
-  document.getElementById('prizeNameInput').value = state.prizeName || '神秘大奖';
+  const prizes = state.prizes || [];
+  for (let i = 0; i < 4; i++) {
+    const nameEl = document.getElementById(`prize${i}name`);
+    const countEl = document.getElementById(`prize${i}count`);
+    if (nameEl && prizes[i]) nameEl.value = prizes[i].name || '';
+    if (countEl && prizes[i]) countEl.value = prizes[i].count || 0;
+  }
 }
 
 async function setDrawTime() {
   if (!isAdminAuthenticated()) { showPasswordModal(); return; }
-  const winnerCount = parseInt(document.getElementById('winnerCountInput').value);
-  const prizeName = document.getElementById('prizeNameInput').value.trim();
   const val = document.getElementById('drawTimeInput').value;
   if (!val) { toast('请选择开奖时间', 'error'); return; }
   if (new Date(val).getTime() <= Date.now()) { toast('开奖时间必须在未来', 'error'); return; }
+
+  const prizes = [];
+  for (let i = 0; i < 4; i++) {
+    prizes.push({
+      name: document.getElementById(`prize${i}name`).value.trim() || `奖项${i + 1}`,
+      count: parseInt(document.getElementById(`prize${i}count`).value) || 0,
+    });
+  }
 
   try {
     const res = await fetch('/api/admin/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
-      body: JSON.stringify({ prizeName, winnerCount, drawTime: new Date(val).toISOString() }),
+      body: JSON.stringify({ prizes, drawTime: new Date(val).toISOString() }),
     });
     const data = await res.json();
     if (!res.ok) { toast(data.error, 'error'); return; }
@@ -1149,14 +1259,7 @@ async function resetLottery() {
   try {
     const res = await fetch('/api/admin/reset', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${adminToken}`,
-      },
-      body: JSON.stringify({
-        prizeName: state.prizeName,
-        winnerCount: state.winnerCount,
-      }),
+      headers: { 'Authorization': `Bearer ${adminToken}` },
     });
     const data = await res.json();
     if (!res.ok) { toast(data.error, 'error'); return; }

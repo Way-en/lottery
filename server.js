@@ -10,10 +10,13 @@ const DIR = process.argv[2] || __dirname;
 let state = {
   drawTime: (() => { const d = new Date(); d.setMinutes(d.getMinutes() + 30); d.setSeconds(0,0); return d.toISOString(); })(),
   participants: [],
-  winners: [],
+  prizes: [
+    { name: '🥇 一等奖', count: 1, winners: [] },
+    { name: '🥈 二等奖', count: 2, winners: [] },
+    { name: '🥉 三等奖', count: 3, winners: [] },
+    { name: '🎁 参与奖', count: 5, winners: [] },
+  ],
   drawn: false,
-  winnerCount: 1,
-  prizeName: '神秘大奖',
 };
 
 // 管理员密码（SHA-256 存储）
@@ -44,11 +47,16 @@ function scheduleDraw() {
 
 function executeDraw() {
   if (state.drawn) return;
-  const winnerCount = Math.min(state.winnerCount || 1, state.participants.length);
-  const shuffled = [...state.participants].sort(() => Math.random() - 0.5);
-  state.winners = shuffled.slice(0, winnerCount);
+  const pool = [...state.participants];
+  for (const prize of state.prizes) {
+    const shuffled = pool.sort(() => Math.random() - 0.5);
+    const count = Math.min(prize.count, pool.length);
+    prize.winners = shuffled.slice(0, count);
+    pool.splice(0, count);  // 中奖者从池子移除，不参与后续奖项
+  }
   state.drawn = true;
-  console.log(`[开奖] 中奖者: ${state.winners.join(', ') || '（无人）'}`);
+  const total = state.prizes.reduce((s, p) => s + p.winners.length, 0);
+  console.log(`[开奖] 共 ${total} 人中奖`);
 }
 
 // 生成 session token
@@ -103,15 +111,14 @@ http.createServer(async (req, res) => {
   try {
     // ---- API 路由 ----
     if (url.pathname === '/api/state') {
-      // 获取公开状态（所有人可访问）
       const publicState = {
         drawTime: state.drawTime,
         participantsCount: state.participants.length,
-        participants: state.participants.slice(-50),  // 最近50人
-        winners: state.winners,
+        participants: state.participants.slice(-50),
+        prizes: state.prizes.map(p => ({
+          name: p.name, count: p.count, winners: p.winners,
+        })),
         drawn: state.drawn,
-        winnerCount: state.winnerCount,
-        prizeName: state.prizeName,
       };
       return jsonResponse(res, 200, publicState);
     }
@@ -169,9 +176,15 @@ http.createServer(async (req, res) => {
       if (!checkAdmin(req)) return jsonResponse(res, 401, { error: '未授权' });
       const body = await parseBody(req);
 
-      if (body.prizeName) state.prizeName = body.prizeName;
-      if (body.winnerCount && body.winnerCount >= 1 && body.winnerCount <= 100) {
-        state.winnerCount = body.winnerCount;
+      if (body.prizes && Array.isArray(body.prizes)) {
+        for (let i = 0; i < state.prizes.length; i++) {
+          if (body.prizes[i]) {
+            if (body.prizes[i].name) state.prizes[i].name = body.prizes[i].name;
+            if (body.prizes[i].count >= 0 && body.prizes[i].count <= 100) {
+              state.prizes[i].count = body.prizes[i].count;
+            }
+          }
+        }
       }
       if (body.drawTime) {
         const newTime = new Date(body.drawTime).getTime();
@@ -180,11 +193,11 @@ http.createServer(async (req, res) => {
         }
         state.drawTime = new Date(body.drawTime).toISOString();
         state.drawn = false;
-        state.winners = [];
+        state.prizes.forEach(p => p.winners = []);
         scheduleDraw();
       }
 
-      console.log(`[管理] 配置更新: ${state.prizeName}, ${state.winnerCount}人中奖, ${new Date(state.drawTime).toLocaleString('zh-CN')}`);
+      console.log(`[管理] 配置更新: 共${state.prizes.length}个奖项, 开奖时间 ${new Date(state.drawTime).toLocaleString('zh-CN')}`);
       return jsonResponse(res, 200, { ok: true });
     }
 
@@ -196,7 +209,7 @@ http.createServer(async (req, res) => {
       state.drawTime = new Date(Date.now() - 1000).toISOString();
       executeDraw();
       console.log('[管理] 手动开奖');
-      return jsonResponse(res, 200, { ok: true, winners: state.winners });
+      return jsonResponse(res, 200, { ok: true, prizes: state.prizes });
     }
 
     if (url.pathname === '/api/admin/simulate' && method === 'POST') {
@@ -223,25 +236,19 @@ http.createServer(async (req, res) => {
 
     if (url.pathname === '/api/admin/reset' && method === 'POST') {
       if (!checkAdmin(req)) return jsonResponse(res, 401, { error: '未授权' });
-      const body = await parseBody(req);
-      const prizeName = body.prizeName || state.prizeName;
-      const winnerCount = body.winnerCount || state.winnerCount;
       const d = new Date();
       d.setMinutes(d.getMinutes() + 30);
       d.setSeconds(0, 0);
       state.drawTime = d.toISOString();
       state.participants = [];
-      state.winners = [];
+      state.prizes.forEach(p => p.winners = []);
       state.drawn = false;
-      state.prizeName = prizeName;
-      state.winnerCount = winnerCount;
       scheduleDraw();
       console.log('[管理] 新一轮抽奖');
       return jsonResponse(res, 200, { ok: true });
     }
 
     if (url.pathname === '/api/admin/export' && method === 'GET') {
-      // 支持 query string token（方便浏览器直接下载）
       const queryToken = url.searchParams.get('token') || '';
       const hasAuth = checkAdmin(req) || adminSessions.has(queryToken);
       if (!hasAuth) return jsonResponse(res, 401, { error: '未授权' });
@@ -249,9 +256,10 @@ http.createServer(async (req, res) => {
       state.participants.forEach((name, i) => { csv += `${i + 1},${name}\n`; });
       csv += `\n导出时间,${new Date().toLocaleString('zh-CN')}\n`;
       csv += `开奖时间,${new Date(state.drawTime).toLocaleString('zh-CN')}\n`;
-      csv += `奖品,${state.prizeName}\n中奖人数,${state.winnerCount}\n`;
       csv += `是否已开奖,${state.drawn ? '是' : '否'}\n`;
-      csv += `中奖者,${state.winners.join(', ') || '（未开奖）'}\n`;
+      state.prizes.forEach(p => {
+        csv += `${p.name}（${p.count}人）,${p.winners.join(', ') || '（未开奖）'}\n`;
+      });
 
       res.writeHead(200, {
         'Content-Type': 'text/csv; charset=utf-8',
