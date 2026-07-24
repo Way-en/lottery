@@ -1,0 +1,12 @@
+{
+  "name": "lottery",
+  "version": "1.0.0",
+  "description": "群抽奖 - 点击链接参与，到点自动开奖",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=16"
+  }
+}

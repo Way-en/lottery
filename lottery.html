@@ -1,0 +1,1197 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎰 幸运大抽奖</title>
+<style>
+  :root {
+    --gold: #f0c060;
+    --gold-dark: #c8942e;
+    --bg: #0a0a0f;
+    --card: #13131f;
+    --text: #e0d6c2;
+    --accent: #e84855;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow-x: hidden;
+    background-image:
+      radial-gradient(ellipse at 50% 0%, rgba(240,192,96,0.08) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 100%, rgba(232,72,85,0.06) 0%, transparent 60%);
+  }
+
+  /* 背景粒子 */
+  .particles {
+    position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  }
+  .particle {
+    position: absolute;
+    background: var(--gold);
+    border-radius: 50%;
+    animation: floatUp linear infinite;
+    opacity: 0;
+  }
+  @keyframes floatUp {
+    0%   { transform: translateY(100vh) scale(0); opacity: 0; }
+    10%  { opacity: 0.8; }
+    90%  { opacity: 0.2; }
+    100% { transform: translateY(-10vh) scale(1); opacity: 0; }
+  }
+
+  .container {
+    position: relative; z-index: 1;
+    width: 100%; max-width: 520px;
+    margin: 20px;
+  }
+
+  /* 卡片 */
+  .card {
+    background: var(--card);
+    border: 1px solid rgba(240,192,96,0.15);
+    border-radius: 20px;
+    padding: 40px 32px;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 80px rgba(240,192,96,0.04);
+    backdrop-filter: blur(8px);
+  }
+
+  .title {
+    font-size: 2.4em;
+    font-weight: 800;
+    background: linear-gradient(135deg, #f7d774, #c8942e, #f7d774);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 6px;
+    letter-spacing: 2px;
+  }
+
+  .subtitle {
+    font-size: 0.9em;
+    color: #888;
+    margin-bottom: 28px;
+    letter-spacing: 1px;
+  }
+
+  /* 倒计时区域 */
+  .countdown-section {
+    margin-bottom: 24px;
+  }
+  .countdown-label {
+    font-size: 0.8em;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    color: #666;
+    margin-bottom: 10px;
+  }
+  .countdown {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .countdown-item {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 12px 8px;
+    min-width: 56px;
+  }
+  .countdown-num {
+    font-size: 2em;
+    font-weight: 700;
+    color: var(--gold);
+    font-variant-numeric: tabular-nums;
+    font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+  }
+  .countdown-unit {
+    font-size: 0.7em;
+    color: #666;
+    margin-top: 2px;
+  }
+  .countdown-sep {
+    font-size: 1.8em;
+    color: #444;
+    align-self: center;
+    margin-top: -8px;
+  }
+
+  .prize-info {
+    font-size: 0.85em;
+    color: #999;
+    margin-bottom: 20px;
+  }
+  .prize-info strong { color: var(--gold); }
+
+  /* 报名区域 */
+  .entry-section {
+    margin-bottom: 20px;
+  }
+  .entry-row {
+    display: flex;
+    gap: 8px;
+  }
+  .entry-row input {
+    flex: 1;
+    padding: 12px 16px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.04);
+    color: #fff;
+    font-size: 1em;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .entry-row input:focus {
+    border-color: var(--gold);
+  }
+  .entry-row input::placeholder { color: #555; }
+
+  .btn {
+    padding: 12px 24px;
+    border-radius: 10px;
+    border: none;
+    font-size: 1em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 1px;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, #c8942e, #e0a840);
+    color: #1a1a1a;
+  }
+  .btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 24px rgba(240,192,96,0.25);
+  }
+  .btn-primary:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+  .btn-outline {
+    background: transparent;
+    border: 1px solid rgba(240,192,96,0.3);
+    color: var(--gold);
+  }
+  .btn-outline:hover {
+    background: rgba(240,192,96,0.06);
+  }
+  .btn-sm {
+    padding: 6px 14px;
+    font-size: 0.8em;
+    border-radius: 6px;
+  }
+
+  /* 参与者列表 */
+  .participant-count {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 12px;
+    font-size: 0.85em;
+    color: #888;
+  }
+  .participant-count .dot {
+    width: 7px; height: 7px;
+    background: #4caf50;
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%,100%{opacity:1}
+    50%{opacity:0.3}
+  }
+  .participant-count strong { color: var(--gold); }
+
+  .participant-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: center;
+    margin-bottom: 16px;
+    max-height: 120px;
+    overflow-y: auto;
+  }
+  .participant-tag {
+    background: rgba(240,192,96,0.08);
+    border: 1px solid rgba(240,192,96,0.15);
+    color: #ccc;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.8em;
+  }
+
+  /* 状态横幅 */
+  .status-banner {
+    padding: 14px 20px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    font-weight: 600;
+    font-size: 0.95em;
+  }
+  .status-waiting {
+    background: rgba(76,175,80,0.08);
+    border: 1px solid rgba(76,175,80,0.2);
+    color: #81c784;
+  }
+  .status-drawing {
+    background: rgba(232,72,85,0.08);
+    border: 1px solid rgba(232,72,85,0.2);
+    color: #ef5350;
+    animation: glowPulse 1.5s infinite;
+  }
+  .status-ended {
+    background: rgba(240,192,96,0.08);
+    border: 1px solid rgba(240,192,96,0.2);
+    color: var(--gold);
+  }
+  @keyframes glowPulse {
+    0%,100%{box-shadow:0 0 8px rgba(232,72,85,0.1)}
+    50%{box-shadow:0 0 20px rgba(232,72,85,0.25)}
+  }
+
+  /* 抽奖滚动动画 */
+  .draw-stage {
+    display: none;
+    margin-bottom: 20px;
+  }
+  .draw-stage.active { display: block; }
+  .slot-machine {
+    background: rgba(0,0,0,0.4);
+    border: 2px solid var(--gold);
+    border-radius: 14px;
+    padding: 20px;
+    margin-bottom: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+  .slot-name {
+    font-size: 2em;
+    font-weight: 700;
+    color: #fff;
+    min-height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: none;
+  }
+  .slot-name.rolling {
+    animation: slotRoll 0.08s steps(1) infinite;
+  }
+  @keyframes slotRoll {
+    0%   { transform: translateY(-60px); opacity: 0.4; }
+    50%  { transform: translateY(0); opacity: 1; }
+    100% { transform: translateY(60px); opacity: 0.4; }
+  }
+  .slot-bracket {
+    position: absolute;
+    left: 0; right: 0;
+    height: 2px;
+    background: var(--gold);
+  }
+  .slot-bracket.top { top: 48px; }
+  .slot-bracket.bottom { bottom: 48px; }
+
+  /* 中奖展示 */
+  .winner-showcase {
+    display: none;
+    margin-bottom: 20px;
+  }
+  .winner-showcase.active { display: block; }
+  .winner-crown {
+    font-size: 3em;
+    animation: bounceIn 0.6s ease-out;
+  }
+  @keyframes bounceIn {
+    0%   { transform: scale(0); opacity: 0; }
+    50%  { transform: scale(1.3); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  .winner-name {
+    font-size: 2em;
+    font-weight: 800;
+    color: var(--gold);
+    margin: 10px 0;
+    animation: bounceIn 0.6s ease-out 0.15s both;
+  }
+  .winner-label {
+    font-size: 0.85em;
+    color: #888;
+    animation: bounceIn 0.6s ease-out 0.3s both;
+  }
+
+  /* 彩带 */
+  canvas#confetti {
+    position: fixed; inset: 0; pointer-events: none; z-index: 10;
+  }
+
+  /* 密码弹窗 */
+  .modal-overlay {
+    position: fixed; inset: 0; z-index: 50;
+    background: rgba(0,0,0,0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(4px);
+  }
+  .modal-overlay.hidden { display: none; }
+  .modal-box {
+    background: #1a1a2e;
+    border: 1px solid rgba(240,192,96,0.2);
+    border-radius: 16px;
+    padding: 32px 28px;
+    width: 320px;
+    max-width: 90vw;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+    animation: modalIn 0.25s ease-out;
+  }
+  @keyframes modalIn {
+    from { transform: translateY(20px) scale(0.95); opacity: 0; }
+    to   { transform: translateY(0) scale(1); opacity: 1; }
+  }
+  .modal-box h3 {
+    color: var(--gold);
+    margin-bottom: 6px;
+    font-size: 1.1em;
+  }
+  .modal-box .modal-sub {
+    color: #777;
+    font-size: 0.8em;
+    margin-bottom: 18px;
+  }
+  .modal-box input {
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.04);
+    color: #fff;
+    font-size: 1em;
+    outline: none;
+    text-align: center;
+    letter-spacing: 4px;
+    margin-bottom: 12px;
+  }
+  .modal-box input:focus { border-color: var(--gold); }
+  .modal-error {
+    color: #ef5350;
+    font-size: 0.8em;
+    margin-bottom: 8px;
+    min-height: 20px;
+  }
+  .modal-actions {
+    display: flex;
+    gap: 8px;
+  }
+  .modal-actions .btn { flex: 1; font-size: 0.85em; }
+
+  /* 管理面板 */
+  .admin-toggle {
+    position: fixed;
+    bottom: 20px; right: 20px;
+    z-index: 20;
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: #555;
+    cursor: pointer;
+    font-size: 1.2em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+  }
+  .admin-toggle:hover {
+    background: rgba(255,255,255,0.08);
+    color: #aaa;
+  }
+  .admin-panel {
+    position: fixed;
+    bottom: 70px; right: 20px;
+    z-index: 20;
+    background: var(--card);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 14px;
+    padding: 20px;
+    width: 280px;
+    display: none;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+  }
+  .admin-panel.show { display: block; }
+  .admin-panel h3 {
+    font-size: 0.9em;
+    color: var(--gold);
+    margin-bottom: 14px;
+    letter-spacing: 1px;
+  }
+  .admin-panel label {
+    display: block;
+    font-size: 0.75em;
+    color: #888;
+    margin-bottom: 4px;
+    text-align: left;
+  }
+  .admin-panel input[type="datetime-local"],
+  .admin-panel input[type="number"],
+  .admin-panel input[type="text"] {
+    width: 100%;
+    padding: 8px 10px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 6px;
+    color: #fff;
+    margin-bottom: 12px;
+    outline: none;
+  }
+  .admin-panel input:focus { border-color: var(--gold); }
+  .admin-actions {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .admin-actions .btn { flex: 1; font-size: 0.75em; padding: 8px; }
+
+  .toast {
+    position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+    z-index: 100;
+    padding: 12px 24px;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 0.9em;
+    animation: slideDown 0.3s ease-out;
+    pointer-events: none;
+  }
+  .toast-success { background: #2e7d32; color: #fff; }
+  .toast-error { background: #c62828; color: #fff; }
+  .toast-info { background: #1565c0; color: #fff; }
+  @keyframes slideDown {
+    from { transform: translateX(-50%) translateY(-100%); opacity: 0; }
+    to   { transform: translateX(-50%) translateY(0); opacity: 1; }
+  }
+
+  @media (max-width: 480px) {
+    .card { padding: 28px 16px; }
+    .title { font-size: 1.7em; }
+    .countdown-num { font-size: 1.4em; }
+    .countdown-item { padding: 10px 6px; min-width: 44px; }
+    .slot-name { font-size: 1.4em; }
+    .winner-name { font-size: 1.4em; }
+  }
+</style>
+</head>
+<body>
+
+<!-- 背景粒子 -->
+<div class="particles" id="particles"></div>
+
+<!-- 彩带画布 -->
+<canvas id="confetti"></canvas>
+
+<div class="container">
+  <div class="card">
+
+    <!-- 标题 -->
+    <div class="title">✨ 幸运大抽奖 ✨</div>
+    <div class="subtitle">拼手气 · 赢大奖</div>
+
+    <!-- 倒计时 -->
+    <div class="countdown-section">
+      <div class="countdown-label">⏳ 距离开奖</div>
+      <div class="countdown" id="countdown">
+        <div class="countdown-item"><div class="countdown-num" id="cd-d">00</div><div class="countdown-unit">天</div></div>
+        <div class="countdown-sep">:</div>
+        <div class="countdown-item"><div class="countdown-num" id="cd-h">00</div><div class="countdown-unit">时</div></div>
+        <div class="countdown-sep">:</div>
+        <div class="countdown-item"><div class="countdown-num" id="cd-m">00</div><div class="countdown-unit">分</div></div>
+        <div class="countdown-sep">:</div>
+        <div class="countdown-item"><div class="countdown-num" id="cd-s">00</div><div class="countdown-unit">秒</div></div>
+      </div>
+      <div class="prize-info">
+        开奖时间：<strong id="draw-time-text">--</strong> ｜ 奖品：<strong>🎁 神秘大奖</strong>
+      </div>
+    </div>
+
+    <!-- 状态横幅 -->
+    <div class="status-banner status-waiting" id="statusBanner">
+      📝 报名进行中，快来参加！
+    </div>
+
+    <!-- 报名表单 -->
+    <div class="entry-section" id="entrySection">
+      <div class="participant-count">
+        <span class="dot"></span> 已报名：<strong id="participantCount">0</strong> 人
+      </div>
+      <div class="participant-tags" id="participantTags"></div>
+      <div class="entry-row">
+        <input type="text" id="nameInput" placeholder="输入你的名字 / 昵称" maxlength="20" autocomplete="off">
+        <button class="btn btn-primary" id="joinBtn" onclick="joinLottery()">🎯 报名</button>
+      </div>
+    </div>
+
+    <!-- 抽奖动画 -->
+    <div class="draw-stage" id="drawStage">
+      <div class="slot-machine">
+        <div class="slot-bracket top"></div>
+        <div class="slot-name" id="slotName">🎰</div>
+        <div class="slot-bracket bottom"></div>
+      </div>
+      <div class="prize-info" id="drawStatusText">正在抽奖中...</div>
+    </div>
+
+    <!-- 中奖展示 -->
+    <div class="winner-showcase" id="winnerShowcase">
+      <div class="winner-crown">👑</div>
+      <div class="winner-name" id="winnerName">---</div>
+      <div class="winner-label">🎉 恭喜以上幸运儿中奖！</div>
+    </div>
+
+    <!-- 操作按钮 -->
+    <div style="margin-top:8px;">
+      <button class="btn btn-outline btn-sm" id="resetBtn" style="display:none" onclick="resetLottery()">🔄 新一轮抽奖</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- 密码弹窗 -->
+<div class="modal-overlay hidden" id="passwordModal">
+  <div class="modal-box">
+    <h3>🔐 管理员验证</h3>
+    <div class="modal-sub">请输入管理密码</div>
+    <input type="password" id="passwordInput" placeholder="••••••" maxlength="32" autocomplete="off">
+    <div class="modal-error" id="passwordError"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closePasswordModal()">取消</button>
+      <button class="btn btn-primary" onclick="verifyPassword()">确认</button>
+    </div>
+    <div style="margin-top:14px;">
+      <button class="btn btn-outline btn-sm" onclick="showChangePassword()" style="font-size:0.7em;opacity:0.6;">🔑 修改密码</button>
+    </div>
+  </div>
+</div>
+
+<!-- 修改密码弹窗 -->
+<div class="modal-overlay hidden" id="changePasswordModal">
+  <div class="modal-box">
+    <h3>🔑 修改管理密码</h3>
+    <div class="modal-sub">需要原密码才能修改</div>
+    <input type="password" id="oldPwInput" placeholder="原密码" maxlength="32" autocomplete="off">
+    <input type="password" id="newPwInput" placeholder="新密码（至少4位）" maxlength="32" autocomplete="off" style="margin-top:8px;">
+    <input type="password" id="confirmPwInput" placeholder="确认新密码" maxlength="32" autocomplete="off" style="margin-top:8px;">
+    <div class="modal-error" id="changePwError"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeChangePasswordModal()">取消</button>
+      <button class="btn btn-primary" onclick="changePassword()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 管理面板 -->
+<button class="admin-toggle" id="adminToggle" title="管理" onclick="toggleAdmin()">⚙</button>
+<div class="admin-panel" id="adminPanel">
+  <h3>🔧 抽奖管理</h3>
+  <label>🎁 奖品名称</label>
+  <input type="text" id="prizeNameInput" placeholder="例如：iPhone 15 Pro Max" maxlength="30">
+  <label>👑 中奖人数</label>
+  <input type="number" id="winnerCountInput" min="1" max="100" value="1" style="width:100%">
+  <label>📅 开奖时间</label>
+  <input type="datetime-local" id="drawTimeInput">
+  <div class="admin-actions">
+    <button class="btn btn-primary" style="flex:2" onclick="setDrawTime()">💾 保存设置</button>
+    <button class="btn btn-outline" onclick="setDrawTime5min()">⏱ +5分钟</button>
+  </div>
+  <div class="admin-actions" style="margin-top:6px">
+    <button class="btn btn-outline" style="color:#ef5350;border-color:rgba(232,72,85,0.3)" onclick="forceDraw()">⚡ 立即开奖</button>
+    <button class="btn btn-outline" onclick="simulateUsers()">👥 模拟报名</button>
+  </div>
+  <div class="admin-actions" style="margin-top:6px">
+    <button class="btn btn-outline" style="color:#f44336;border-color:rgba(244,67,54,0.3)" onclick="clearParticipants()">🗑 清空报名</button>
+    <button class="btn btn-outline" onclick="exportData()">📋 导出数据</button>
+  </div>
+</div>
+
+<script>
+// ===== 服务端共享状态 =====
+let state = null;           // 从服务器拉取
+let adminToken = sessionStorage.getItem('admin_token') || null;
+let isDrawing = false;
+let lastDrawn = false;      // 跟踪上一次的开奖状态
+let pollTimer = null;
+
+// 从服务器获取最新状态
+async function fetchState() {
+  try {
+    const res = await fetch('/api/state');
+    if (!res.ok) throw new Error('Server error');
+    state = await res.json();
+    // 服务器返回的 participants 是数组，保持兼容
+    if (!Array.isArray(state.participants)) state.participants = [];
+    return state;
+  } catch(e) {
+    console.error('获取状态失败:', e);
+    return null;
+  }
+}
+
+// 检测是否刚开奖（触发动画）
+function checkDrawTransition() {
+  if (!state) return;
+  if (state.drawn && !lastDrawn) {
+    // 刚开奖！
+    showDrawResult();
+  }
+  lastDrawn = state.drawn;
+}
+
+// ===== UI 更新 =====
+function updateCountdown() {
+  if (!state) return true;
+  const now = Date.now();
+  const target = new Date(state.drawTime).getTime();
+  const diff = target - now;
+
+  const els = {
+    d: document.getElementById('cd-d'), h: document.getElementById('cd-h'),
+    m: document.getElementById('cd-m'), s: document.getElementById('cd-s'),
+  };
+  if (diff <= 0) { Object.values(els).forEach(e => e.textContent = '00'); return false; }
+
+  const totalSec = Math.floor(diff / 1000);
+  els.d.textContent = String(Math.floor(totalSec / 86400)).padStart(2, '0');
+  els.h.textContent = String(Math.floor((totalSec % 86400) / 3600)).padStart(2, '0');
+  els.m.textContent = String(Math.floor((totalSec % 3600) / 60)).padStart(2, '0');
+  els.s.textContent = String(totalSec % 60).padStart(2, '0');
+  return true;
+}
+
+function updateDrawTimeText() {
+  if (!state) return;
+  const d = new Date(state.drawTime);
+  document.getElementById('draw-time-text').textContent =
+    d.toLocaleString('zh-CN', { month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' });
+  document.querySelector('.prize-info strong:last-of-type').textContent =
+    `🎁 ${state.prizeName}（${state.winnerCount}人）`;
+}
+
+function updateParticipants() {
+  if (!state) return;
+  const participants = state.participants || [];
+  document.getElementById('participantCount').textContent = participants.length;
+
+  const container = document.getElementById('participantTags');
+  container.innerHTML = participants.slice(-30).map(p =>
+    `<span class="participant-tag">${escHtml(p)}</span>`
+  ).join('');
+  if (participants.length > 30) {
+    container.innerHTML += `<span class="participant-tag">...还有${participants.length - 30}人</span>`;
+  }
+}
+
+function escHtml(s) { const el = document.createElement('span'); el.textContent = s; return el.innerHTML; }
+
+function updateStatusBanner() {
+  if (!state) return;
+  const banner = document.getElementById('statusBanner');
+  banner.className = 'status-banner';
+  if (state.drawn && state.winners.length > 0) {
+    banner.className += ' status-ended';
+    banner.textContent = `🎉 已开奖！${state.winners.length} 位幸运儿诞生`;
+  } else if (state.drawn && state.winners.length === 0) {
+    banner.className += ' status-ended';
+    banner.textContent = '😔 本期无人中奖';
+  } else if (Date.now() >= new Date(state.drawTime).getTime()) {
+    banner.className += ' status-drawing';
+    banner.textContent = '🎰 正在开奖中...';
+  } else {
+    banner.className += ' status-waiting';
+    banner.textContent = '📝 报名进行中，快来参加！';
+  }
+}
+
+function updateEntryVisibility() {
+  if (!state) return;
+  const entrySection = document.getElementById('entrySection');
+  const drawStage = document.getElementById('drawStage');
+  const winnerShowcase = document.getElementById('winnerShowcase');
+  const resetBtn = document.getElementById('resetBtn');
+  const joinBtn = document.getElementById('joinBtn');
+
+  if (state.drawn) {
+    entrySection.style.display = 'none';
+    drawStage.classList.remove('active');
+    winnerShowcase.classList.add('active');
+    resetBtn.style.display = 'inline-block';
+    joinBtn.disabled = true;
+    document.getElementById('nameInput').disabled = true;
+    if (state.winners.length > 0) {
+      document.getElementById('winnerName').textContent = state.winners.join('  ');
+    }
+  } else if (isDrawing || Date.now() >= new Date(state.drawTime).getTime()) {
+    entrySection.style.display = 'block';
+    drawStage.classList.add('active');
+    winnerShowcase.classList.remove('active');
+    resetBtn.style.display = 'none';
+    joinBtn.disabled = true;
+    document.getElementById('nameInput').disabled = true;
+  } else {
+    entrySection.style.display = 'block';
+    drawStage.classList.remove('active');
+    winnerShowcase.classList.remove('active');
+    resetBtn.style.display = 'none';
+    joinBtn.disabled = false;
+    document.getElementById('nameInput').disabled = false;
+  }
+}
+
+// ===== 粒子背景 =====
+function createParticles() {
+  const container = document.getElementById('particles');
+  for (let i = 0; i < 30; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    const size = Math.random() * 3 + 1;
+    p.style.width = size + 'px';
+    p.style.height = size + 'px';
+    p.style.left = Math.random() * 100 + '%';
+    p.style.animationDuration = (Math.random() * 10 + 8) + 's';
+    p.style.animationDelay = (Math.random() * 10) + 's';
+    container.appendChild(p);
+  }
+}
+
+// ===== Toast =====
+function toast(msg, type = 'info') {
+  const el = document.createElement('div');
+  el.className = 'toast toast-' + type;
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2500);
+}
+
+// ===== 报名 =====
+async function joinLottery() {
+  if (!state) return;
+  if (state.drawn) { toast('本期抽奖已结束，请等待下一轮', 'error'); return; }
+  if (Date.now() >= new Date(state.drawTime).getTime()) { toast('已到开奖时间，停止报名', 'error'); return; }
+
+  const input = document.getElementById('nameInput');
+  const name = input.value.trim();
+  if (!name) { toast('请输入你的名字', 'error'); input.focus(); return; }
+
+  try {
+    const res = await fetch('/api/join', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    });
+    const data = await res.json();
+    if (!res.ok) { toast(data.error || '报名失败', 'error'); return; }
+
+    // 立即刷新状态
+    await fetchState();
+    updateAll();
+    input.value = '';
+    input.focus();
+    toast(`🎉 ${name}，报名成功！`, 'success');
+  } catch(e) {
+    toast('网络错误，请重试', 'error');
+  }
+}
+
+// 回车报名
+document.getElementById('nameInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') joinLottery();
+});
+
+// ===== 开奖结果展示 =====
+function showDrawResult() {
+  if (!state || !state.drawn) return;
+  isDrawing = false;
+
+  const slotName = document.getElementById('slotName');
+  const drawStatus = document.getElementById('drawStatusText');
+  const participants = state.participants || [];
+
+  // 滚动动画（纯视觉效果，结果已由服务器决定）
+  let rollCount = 0;
+  const totalRolls = 20 + Math.floor(Math.random() * 10);
+  const rollInterval = setInterval(() => {
+    const randomIdx = Math.floor(Math.random() * Math.max(1, participants.length));
+    slotName.textContent = participants[randomIdx] || '🎰';
+    rollCount++;
+
+    if (rollCount >= totalRolls) {
+      clearInterval(rollInterval);
+      slotName.textContent = state.winners.length > 0 ? state.winners.join('  ') : '（无人中奖）';
+      slotName.style.color = '#f0c060';
+      drawStatus.textContent = state.winners.length > 0 ? '🎉 恭喜中奖！' : '😔 本期无人中奖';
+
+      setTimeout(() => {
+        updateAll();
+        if (state.winners.length > 0) launchConfetti();
+      }, 1500);
+    }
+  }, 80);
+}
+
+function launchConfetti() {
+  const canvas = document.getElementById('confetti');
+  const ctx = canvas.getContext('2d');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+
+  const colors = ['#f0c060','#e84855','#4caf50','#42a5f5','#ab47bc','#ff9800','#fff'];
+  const particles = [];
+
+  for (let i = 0; i < 200; i++) {
+    particles.push({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height - canvas.height,
+      w: Math.random() * 8 + 3,
+      h: Math.random() * 5 + 2,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      vx: (Math.random() - 0.5) * 3,
+      vy: Math.random() * 4 + 2,
+      rotation: Math.random() * 360,
+      rotSpeed: (Math.random() - 0.5) * 10,
+      opacity: 1,
+    });
+  }
+
+  let frame = 0;
+  function animate() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    let allDone = true;
+
+    particles.forEach(p => {
+      if (p.opacity <= 0) return;
+      allDone = false;
+
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.05; // gravity
+      p.rotation += p.rotSpeed;
+      p.opacity -= 0.005;
+      if (p.opacity < 0) p.opacity = 0;
+
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rotation * Math.PI / 180);
+      ctx.globalAlpha = p.opacity;
+      ctx.fillStyle = p.color;
+      ctx.fillRect(-p.w/2, -p.h/2, p.w, p.h);
+      ctx.restore();
+    });
+
+    frame++;
+    if (frame < 180 && !allDone) {
+      requestAnimationFrame(animate);
+    } else {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+  }
+  animate();
+}
+
+function updateAll() {
+  updateCountdown();
+  updateDrawTimeText();
+  updateParticipants();
+  updateStatusBanner();
+  updateEntryVisibility();
+  updateAdminPanelTime();
+}
+
+// ===== 定时轮询 =====
+async function pollState() {
+  const prevDrawTime = state ? state.drawTime : null;
+  await fetchState();
+  if (!state) return;
+
+  checkDrawTransition();
+  updateAll();
+
+  // 如果开奖时间变了（管理员更新了设置），重置追踪
+  if (state.drawTime !== prevDrawTime) {
+    lastDrawn = state.drawn;
+  }
+}
+
+function startPolling() {
+  pollState(); // 立即拉一次
+  pollTimer = setInterval(pollState, 2000); // 每2秒轮询
+}
+
+// ===== 管理功能 =====
+function isAdminAuthenticated() { return !!adminToken; }
+
+function toggleAdmin() {
+  if (isAdminAuthenticated()) {
+    document.getElementById('adminPanel').classList.toggle('show');
+  } else {
+    showPasswordModal();
+  }
+}
+
+function showPasswordModal() {
+  document.getElementById('passwordModal').classList.remove('hidden');
+  document.getElementById('passwordInput').value = '';
+  document.getElementById('passwordError').textContent = '';
+  setTimeout(() => document.getElementById('passwordInput').focus(), 100);
+}
+
+function closePasswordModal() {
+  document.getElementById('passwordModal').classList.add('hidden');
+  document.getElementById('passwordInput').value = '';
+  document.getElementById('passwordError').textContent = '';
+}
+
+async function verifyPassword() {
+  const input = document.getElementById('passwordInput').value;
+  const errorEl = document.getElementById('passwordError');
+  if (!input) { errorEl.textContent = '请输入密码'; return; }
+
+  try {
+    const res = await fetch('/api/admin/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: input }),
+    });
+    const data = await res.json();
+    if (!res.ok) { errorEl.textContent = data.error || '密码错误'; return; }
+
+    adminToken = data.token;
+    sessionStorage.setItem('admin_token', adminToken);
+    closePasswordModal();
+    document.getElementById('adminPanel').classList.add('show');
+    toast('✅ 验证成功', 'success');
+  } catch(e) {
+    errorEl.textContent = '网络错误';
+  }
+}
+
+// 密码弹窗回车
+document.getElementById('passwordInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') verifyPassword();
+});
+
+// 修改密码
+function showChangePassword() {
+  closePasswordModal();
+  document.getElementById('changePasswordModal').classList.remove('hidden');
+  document.getElementById('oldPwInput').value = '';
+  document.getElementById('newPwInput').value = '';
+  document.getElementById('confirmPwInput').value = '';
+  document.getElementById('changePwError').textContent = '';
+  setTimeout(() => document.getElementById('oldPwInput').focus(), 100);
+}
+
+function closeChangePasswordModal() {
+  document.getElementById('changePasswordModal').classList.add('hidden');
+}
+
+async function changePassword() {
+  const oldPw = document.getElementById('oldPwInput').value;
+  const newPw = document.getElementById('newPwInput').value;
+  const confirmPw = document.getElementById('confirmPwInput').value;
+  const errorEl = document.getElementById('changePwError');
+
+  if (!oldPw || !newPw || !confirmPw) { errorEl.textContent = '请填写所有字段'; return; }
+  if (newPw.length < 4) { errorEl.textContent = '新密码至少需要4位'; return; }
+  if (newPw !== confirmPw) { errorEl.textContent = '两次输入的新密码不一致'; return; }
+
+  try {
+    const res = await fetch('/api/admin/change-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
+      body: JSON.stringify({ oldPw, newPw }),
+    });
+    const data = await res.json();
+    if (!res.ok) { errorEl.textContent = data.error; return; }
+
+    // 密码改了，token 失效，需要重新登录
+    adminToken = null;
+    sessionStorage.removeItem('admin_token');
+    closeChangePasswordModal();
+    toast('✅ 密码已更新，请重新登录', 'success');
+  } catch(e) { errorEl.textContent = '网络错误'; }
+}
+
+function updateAdminPanelTime() {
+  if (!state) return;
+  const d = new Date(state.drawTime);
+  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  document.getElementById('drawTimeInput').value = local;
+  document.getElementById('winnerCountInput').value = state.winnerCount || 1;
+  document.getElementById('prizeNameInput').value = state.prizeName || '神秘大奖';
+}
+
+async function setDrawTime() {
+  if (!isAdminAuthenticated()) { showPasswordModal(); return; }
+  const winnerCount = parseInt(document.getElementById('winnerCountInput').value);
+  const prizeName = document.getElementById('prizeNameInput').value.trim();
+  const val = document.getElementById('drawTimeInput').value;
+  if (!val) { toast('请选择开奖时间', 'error'); return; }
+  if (new Date(val).getTime() <= Date.now()) { toast('开奖时间必须在未来', 'error'); return; }
+
+  try {
+    const res = await fetch('/api/admin/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
+      body: JSON.stringify({ prizeName, winnerCount, drawTime: new Date(val).toISOString() }),
+    });
+    const data = await res.json();
+    if (!res.ok) { toast(data.error, 'error'); return; }
+
+    lastDrawn = false;
+    await pollState();
+    document.getElementById('adminPanel').classList.remove('show');
+    toast('✅ 设置已保存', 'success');
+  } catch(e) { toast('网络错误', 'error'); }
+}
+
+async function setDrawTime5min() {
+  if (!isAdminAuthenticated()) { showPasswordModal(); return; }
+  const d = new Date(); d.setMinutes(d.getMinutes() + 5); d.setSeconds(0, 0);
+  try {
+    const res = await fetch('/api/admin/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
+      body: JSON.stringify({ drawTime: d.toISOString() }),
+    });
+    const data = await res.json();
+    if (!res.ok) { toast(data.error, 'error'); return; }
+    lastDrawn = false;
+    await pollState();
+    document.getElementById('adminPanel').classList.remove('show');
+    toast('⏱ 开奖时间已设为 5 分钟后', 'success');
+  } catch(e) { toast('网络错误', 'error'); }
+}
+
+async function forceDraw() {
+  if (!isAdminAuthenticated()) { showPasswordModal(); return; }
+  try {
+    const res = await fetch('/api/admin/force-draw', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${adminToken}` },
+    });
+    const data = await res.json();
+    if (!res.ok) { toast(data.error, 'error'); return; }
+    document.getElementById('adminPanel').classList.remove('show');
+    toast('⚡ 正在开奖...', 'info');
+    // 立即刷新看结果
+    await pollState();
+    showDrawResult();
+  } catch(e) { toast('网络错误', 'error'); }
+}
+
+async function simulateUsers() {
+  if (!isAdminAuthenticated()) { showPasswordModal(); return; }
+  try {
+    const res = await fetch('/api/admin/simulate', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${adminToken}` },
+    });
+    const data = await res.json();
+    if (!res.ok) { toast(data.error, 'error'); return; }
+    await pollState();
+    updateAll();
+    document.getElementById('adminPanel').classList.remove('show');
+    toast(`👥 已模拟 ${data.added} 人报名`, 'success');
+  } catch(e) { toast('网络错误', 'error'); }
+}
+
+async function clearParticipants() {
+  if (!isAdminAuthenticated()) { showPasswordModal(); return; }
+  if (!confirm(`确定要清空全部参与者吗？此操作不可恢复。`)) return;
+  try {
+    const res = await fetch('/api/admin/clear', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${adminToken}` },
+    });
+    const data = await res.json();
+    if (!res.ok) { toast(data.error, 'error'); return; }
+    await pollState();
+    updateAll();
+    document.getElementById('adminPanel').classList.remove('show');
+    toast('🗑 报名名单已清空', 'info');
+  } catch(e) { toast('网络错误', 'error'); }
+}
+
+function exportData() {
+  if (!isAdminAuthenticated()) { showPasswordModal(); return; }
+  // 直接让浏览器下载服务器返回的 CSV
+  const a = document.createElement('a');
+  a.href = `/api/admin/export?token=${encodeURIComponent(adminToken)}`;
+  a.download = `抽奖数据_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  document.getElementById('adminPanel').classList.remove('show');
+  toast('📋 数据已导出', 'success');
+}
+
+async function resetLottery() {
+  if (!isAdminAuthenticated()) { showPasswordModal(); return; }
+  try {
+    const res = await fetch('/api/admin/reset', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${adminToken}`,
+      },
+      body: JSON.stringify({
+        prizeName: state.prizeName,
+        winnerCount: state.winnerCount,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) { toast(data.error, 'error'); return; }
+    lastDrawn = false;
+    isDrawing = false;
+    document.getElementById('slotName').textContent = '🎰';
+    document.getElementById('slotName').style.color = '#fff';
+    document.getElementById('drawStatusText').textContent = '正在抽奖中...';
+    await pollState();
+    updateAll();
+    document.getElementById('adminPanel').classList.remove('show');
+    toast('🔄 新一轮抽奖已就绪', 'success');
+  } catch(e) { toast('网络错误', 'error'); }
+}
+
+// ===== 初始化 =====
+async function init() {
+  createParticles();
+  await fetchState();
+  if (state) {
+    lastDrawn = state.drawn;
+    updateAdminPanelTime();
+    updateAll();
+  }
+  startPolling();
+}
+
+init();
+
+// 窗口大小改变时调整彩带画布
+window.addEventListener('resize', () => {
+  const canvas = document.getElementById('confetti');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+});
+</script>
+</body>
+</html>
