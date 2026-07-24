@@ -568,6 +568,7 @@
         <input type="text" id="nameInput" placeholder="输入你的名字 / 昵称" maxlength="20" autocomplete="off">
         <button class="btn btn-primary" id="joinBtn" onclick="joinLottery()">🎯 报名</button>
       </div>
+      <div style="font-size:0.7em;color:#555;margin-top:6px;" id="ipHint">🔒 每台设备/IP 限报一次，请勿重复报名</div>
     </div>
 
     <!-- 抽奖动画 -->
@@ -659,6 +660,10 @@
       <span style="color:#666;font-size:0.65em;">人</span>
     </div>
   </div>
+  <label style="display:flex;align-items:center;justify-content:space-between;">
+    🔒 IP 限制
+    <span id="ipLimitToggle" onclick="toggleIpLimit()" style="cursor:pointer;font-size:1.4em;user-select:none;">✅</span>
+  </label>
   <label>📅 开奖时间</label>
   <input type="datetime-local" id="drawTimeInput">
   <div class="admin-actions">
@@ -1014,6 +1019,7 @@ function updateAll() {
   updateStatusBanner();
   updateEntryVisibility();
   updateAdminPanelTime();
+  updateIpLimitUI();
 }
 
 // ===== 定时轮询 =====
@@ -1129,6 +1135,33 @@ async function changePassword() {
     closeChangePasswordModal();
     toast('✅ 密码已更新，请重新登录', 'success');
   } catch(e) { errorEl.textContent = '网络错误'; }
+}
+
+function updateIpLimitUI() {
+  const toggle = document.getElementById('ipLimitToggle');
+  const hint = document.getElementById('ipHint');
+  const enabled = state && state.ipLimit;
+  if (toggle) toggle.textContent = enabled ? '✅' : '⭕';
+  if (hint) hint.style.display = enabled ? '' : 'none';
+}
+
+async function toggleIpLimit() {
+  if (!isAdminAuthenticated()) { showPasswordModal(); return; }
+  // 直接在服务器端切换
+  const newVal = !(state && state.ipLimit);
+  try {
+    const res = await fetch('/api/admin/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
+      body: JSON.stringify({ ipLimit: newVal }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      await pollState();
+      updateIpLimitUI();
+      toast(newVal ? '🔒 IP 限制已开启' : '🔓 IP 限制已关闭', 'success');
+    }
+  } catch(e) { toast('网络错误', 'error'); }
 }
 
 function updateAdminPanelTime() {

@@ -17,7 +17,16 @@ let state = {
     { name: '🎁 参与奖', count: 5, winners: [] },
   ],
   drawn: false,
+  ipMap: {},  // IP → name，同 IP 只能报一次
+  ipLimit: true,  // 是否开启 IP 限制
 };
+
+// 获取客户端真实 IP
+function getIP(req) {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (forwarded) return forwarded.split(',')[0].trim();
+  return req.connection.remoteAddress || '0.0.0.0';
+}
 
 // 管理员密码（SHA-256 存储）
 let adminPasswordHash = crypto.createHash('sha256').update('admin123').digest('hex');
@@ -119,6 +128,7 @@ http.createServer(async (req, res) => {
           name: p.name, count: p.count, winners: p.winners,
         })),
         drawn: state.drawn,
+        ipLimit: state.ipLimit,
       };
       return jsonResponse(res, 200, publicState);
     }
@@ -138,6 +148,15 @@ http.createServer(async (req, res) => {
       }
       if (state.participants.includes(name)) {
         return jsonResponse(res, 400, { error: '这个名字已经报名过了' });
+      }
+
+      // IP 限制检查
+      if (state.ipLimit) {
+        const ip = getIP(req);
+        if (state.ipMap[ip]) {
+          return jsonResponse(res, 400, { error: `该设备已报名（${state.ipMap[ip]}），同一网络只能报名一次` });
+        }
+        state.ipMap[ip] = name;
       }
 
       state.participants.push(name);
@@ -176,6 +195,10 @@ http.createServer(async (req, res) => {
       if (!checkAdmin(req)) return jsonResponse(res, 401, { error: '未授权' });
       const body = await parseBody(req);
 
+      if (body.ipLimit !== undefined) {
+        state.ipLimit = !!body.ipLimit;
+        if (!state.ipLimit) state.ipMap = {};  // 关闭限制时清空 IP 记录
+      }
       if (body.prizes && Array.isArray(body.prizes)) {
         for (let i = 0; i < state.prizes.length; i++) {
           if (body.prizes[i]) {
@@ -230,6 +253,7 @@ http.createServer(async (req, res) => {
       if (!checkAdmin(req)) return jsonResponse(res, 401, { error: '未授权' });
       if (state.drawn) return jsonResponse(res, 400, { error: '本期已结束' });
       state.participants = [];
+      state.ipMap = {};
       console.log('[管理] 清空报名名单');
       return jsonResponse(res, 200, { ok: true });
     }
@@ -241,6 +265,7 @@ http.createServer(async (req, res) => {
       d.setSeconds(0, 0);
       state.drawTime = d.toISOString();
       state.participants = [];
+      state.ipMap = {};
       state.prizes.forEach(p => p.winners = []);
       state.drawn = false;
       scheduleDraw();
