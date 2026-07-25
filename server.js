@@ -7,20 +7,38 @@ const PORT = process.env.PORT || 8080;
 const DIR = process.argv[2] || __dirname;
 const DATA_FILE = path.join(DIR, 'data.json');
 
+// ===== 🔧 默认配置（改这里就行） =====
+const CONFIG = {
+  // 开奖时间：距现在多少分钟后（修改这个数字）
+  drawAfterMinutes: 30,
+
+  // 奖项设置（改名字和人数）
+  prizes: [
+    { name: '🥇 一等奖', count: 1 },
+    { name: '🥈 二等奖', count: 2 },
+    { name: '🥉 三等奖', count: 3 },
+    { name: '🎁 参与奖', count: 5 },
+  ],
+
+  // 是否开启 IP 限制
+  ipLimit: true,
+
+  // 默认管理员密码
+  defaultPassword: 'admin123',
+};
+
 // ===== 服务端抽奖状态（所有人共享） =====
 function createDefaultState() {
+  const d = new Date();
+  d.setMinutes(d.getMinutes() + CONFIG.drawAfterMinutes);
+  d.setSeconds(0, 0);
   return {
-    drawTime: (() => { const d = new Date(); d.setMinutes(d.getMinutes() + 30); d.setSeconds(0,0); return d.toISOString(); })(),
+    drawTime: d.toISOString(),
     participants: [],
-    prizes: [
-      { name: '🥇 一等奖', count: 1, winners: [] },
-      { name: '🥈 二等奖', count: 2, winners: [] },
-      { name: '🥉 三等奖', count: 3, winners: [] },
-      { name: '🎁 参与奖', count: 5, winners: [] },
-    ],
+    prizes: CONFIG.prizes.map(p => ({ ...p, winners: [] })),
     drawn: false,
     ipMap: {},
-    ipLimit: true,
+    ipLimit: CONFIG.ipLimit,
   };
 }
 
@@ -52,7 +70,7 @@ function getIP(req) {
 
 // 管理员密码（SHA-256 存储，持久化到文件）
 const PW_FILE = path.join(DIR, 'pw.txt');
-let adminPasswordHash = crypto.createHash('sha256').update('admin123').digest('hex');
+let adminPasswordHash = crypto.createHash('sha256').update(CONFIG.defaultPassword).digest('hex');
 try {
   if (fs.existsSync(PW_FILE)) {
     adminPasswordHash = fs.readFileSync(PW_FILE, 'utf-8').trim();
