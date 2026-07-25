@@ -5,21 +5,43 @@ const crypto = require('crypto');
 
 const PORT = process.env.PORT || 8080;
 const DIR = process.argv[2] || __dirname;
+const DATA_FILE = path.join(DIR, 'data.json');
 
 // ===== 服务端抽奖状态（所有人共享） =====
-let state = {
-  drawTime: (() => { const d = new Date(); d.setMinutes(d.getMinutes() + 30); d.setSeconds(0,0); return d.toISOString(); })(),
-  participants: [],
-  prizes: [
-    { name: '🥇 一等奖', count: 1, winners: [] },
-    { name: '🥈 二等奖', count: 2, winners: [] },
-    { name: '🥉 三等奖', count: 3, winners: [] },
-    { name: '🎁 参与奖', count: 5, winners: [] },
-  ],
-  drawn: false,
-  ipMap: {},  // IP → name，同 IP 只能报一次
-  ipLimit: true,  // 是否开启 IP 限制
-};
+function createDefaultState() {
+  return {
+    drawTime: (() => { const d = new Date(); d.setMinutes(d.getMinutes() + 30); d.setSeconds(0,0); return d.toISOString(); })(),
+    participants: [],
+    prizes: [
+      { name: '🥇 一等奖', count: 1, winners: [] },
+      { name: '🥈 二等奖', count: 2, winners: [] },
+      { name: '🥉 三等奖', count: 3, winners: [] },
+      { name: '🎁 参与奖', count: 5, winners: [] },
+    ],
+    drawn: false,
+    ipMap: {},
+    ipLimit: true,
+  };
+}
+
+function loadState() {
+  try {
+    if (fs.existsSync(DATA_FILE)) {
+      const raw = fs.readFileSync(DATA_FILE, 'utf-8');
+      const saved = JSON.parse(raw);
+      return { ...createDefaultState(), ...saved };
+    }
+  } catch(e) { console.error('加载数据失败，使用默认状态:', e.message); }
+  return createDefaultState();
+}
+
+function saveState() {
+  try {
+    fs.writeFileSync(DATA_FILE, JSON.stringify(state), 'utf-8');
+  } catch(e) { console.error('保存数据失败:', e.message); }
+}
+
+let state = loadState();
 
 // 获取客户端真实 IP
 function getIP(req) {
@@ -28,8 +50,14 @@ function getIP(req) {
   return req.connection.remoteAddress || '0.0.0.0';
 }
 
-// 管理员密码（SHA-256 存储）
+// 管理员密码（SHA-256 存储，持久化到文件）
+const PW_FILE = path.join(DIR, 'pw.txt');
 let adminPasswordHash = crypto.createHash('sha256').update('admin123').digest('hex');
+try {
+  if (fs.existsSync(PW_FILE)) {
+    adminPasswordHash = fs.readFileSync(PW_FILE, 'utf-8').trim();
+  }
+} catch(e) {}
 
 // 管理员 session tokens
 const adminSessions = new Set();
@@ -64,6 +92,7 @@ function executeDraw() {
     pool.splice(0, count);  // 中奖者从池子移除，不参与后续奖项
   }
   state.drawn = true;
+  saveState();
   const total = state.prizes.reduce((s, p) => s + p.winners.length, 0);
   console.log(`[开奖] 共 ${total} 人中奖`);
 }
@@ -160,6 +189,7 @@ http.createServer(async (req, res) => {
       }
 
       state.participants.push(name);
+      saveState();
       console.log(`[报名] ${name}  |  总人数: ${state.participants.length}`);
       return jsonResponse(res, 200, { ok: true, count: state.participants.length });
     }
@@ -187,6 +217,7 @@ http.createServer(async (req, res) => {
       }
       adminPasswordHash = crypto.createHash('sha256').update(body.newPw).digest('hex');
       adminSessions.clear();
+      fs.writeFileSync(path.join(DIR, 'pw.txt'), adminPasswordHash, 'utf-8');
       console.log('[管理] 密码已修改');
       return jsonResponse(res, 200, { ok: true });
     }
@@ -220,6 +251,7 @@ http.createServer(async (req, res) => {
         scheduleDraw();
       }
 
+      saveState();
       console.log(`[管理] 配置更新: 共${state.prizes.length}个奖项, 开奖时间 ${new Date(state.drawTime).toLocaleString('zh-CN')}`);
       return jsonResponse(res, 200, { ok: true });
     }
@@ -245,6 +277,7 @@ http.createServer(async (req, res) => {
       const toAdd = names.filter(n => !state.participants.includes(n));
       const selected = toAdd.sort(() => Math.random() - 0.5).slice(0, Math.min(15, toAdd.length));
       state.participants.push(...selected);
+      saveState();
       console.log(`[管理] 模拟报名 ${selected.length} 人`);
       return jsonResponse(res, 200, { ok: true, added: selected.length, count: state.participants.length });
     }
@@ -254,6 +287,7 @@ http.createServer(async (req, res) => {
       if (state.drawn) return jsonResponse(res, 400, { error: '本期已结束' });
       state.participants = [];
       state.ipMap = {};
+      saveState();
       console.log('[管理] 清空报名名单');
       return jsonResponse(res, 200, { ok: true });
     }
@@ -268,6 +302,7 @@ http.createServer(async (req, res) => {
       state.ipMap = {};
       state.prizes.forEach(p => p.winners = []);
       state.drawn = false;
+      saveState();
       scheduleDraw();
       console.log('[管理] 新一轮抽奖');
       return jsonResponse(res, 200, { ok: true });
