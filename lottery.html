@@ -1169,6 +1169,11 @@ async function toggleIpLimit() {
 
 function updateAdminPanelTime() {
   if (!state) return;
+  // 管理员正在编辑时不覆盖，防止输入被打断
+  const active = document.activeElement;
+  const panel = document.getElementById('adminPanel');
+  if (panel.classList.contains('show') && active && active.closest('#adminPanel')) return;
+
   const d = new Date(state.drawTime);
   const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
   document.getElementById('drawTimeInput').value = local;
