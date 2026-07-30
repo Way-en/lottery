@@ -17,7 +17,6 @@ const CONFIG = {
     { name: '🥇 一等奖', count: 1 },
     { name: '🥈 二等奖', count: 2 },
     { name: '🥉 三等奖', count: 3 },
-    { name: '🎁 参与奖', count: 5 },
   ],
 
   // 是否开启 IP 限制

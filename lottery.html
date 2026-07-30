@@ -657,12 +657,6 @@
       <input type="number" id="prize2count" value="3" min="0" max="100" style="flex:1;width:auto;margin-bottom:0;text-align:center;">
       <span style="color:#666;font-size:0.65em;">人</span>
     </div>
-    <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center;">
-      <span style="color:#888;font-size:0.7em;min-width:40px;">🎁</span>
-      <input type="text" id="prize3name" value="参与奖" maxlength="12" style="flex:2;margin-bottom:0;">
-      <input type="number" id="prize3count" value="5" min="0" max="100" style="flex:1;width:auto;margin-bottom:0;text-align:center;">
-      <span style="color:#666;font-size:0.65em;">人</span>
-    </div>
   </div>
   <label style="display:flex;align-items:center;justify-content:space-between;">
     🔒 IP 限制
@@ -1174,7 +1168,7 @@ function updateAdminPanelTime() {
   const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
   document.getElementById('drawTimeInput').value = local;
   const prizes = state.prizes || [];
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 3; i++) {
     const nameEl = document.getElementById(`prize${i}name`);
     const countEl = document.getElementById(`prize${i}count`);
     if (nameEl && prizes[i]) nameEl.value = prizes[i].name || '';
@@ -1189,7 +1183,7 @@ async function setDrawTime() {
   if (new Date(val).getTime() <= Date.now()) { toast('开奖时间必须在未来', 'error'); return; }
 
   const prizes = [];
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 3; i++) {
     prizes.push({
       name: document.getElementById(`prize${i}name`).value.trim() || `奖项${i + 1}`,
       count: parseInt(document.getElementById(`prize${i}count`).value) || 0,
