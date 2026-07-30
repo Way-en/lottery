@@ -663,10 +663,15 @@
     <span id="ipLimitToggle" onclick="toggleIpLimit()" style="cursor:pointer;font-size:1.4em;user-select:none;">✅</span>
   </label>
   <label>📅 开奖时间</label>
-  <input type="datetime-local" id="drawTimeInput">
+  <input type="datetime-local" id="drawTimeInput" style="margin-bottom:6px;">
+  <div style="display:flex;gap:4px;margin-bottom:6px;">
+    <button class="btn btn-outline btn-sm" onclick="quickSetTime(5)">5分钟后</button>
+    <button class="btn btn-outline btn-sm" onclick="quickSetTime(10)">10分钟后</button>
+    <button class="btn btn-outline btn-sm" onclick="quickSetTime(15)">15分钟后</button>
+    <button class="btn btn-outline btn-sm" onclick="quickSetTime(30)">30分钟后</button>
+  </div>
   <div class="admin-actions">
     <button class="btn btn-primary" style="flex:2" onclick="setDrawTime()">💾 保存设置</button>
-    <button class="btn btn-outline" onclick="setDrawTime5min()">⏱ +5分钟</button>
   </div>
   <div class="admin-actions" style="margin-top:6px">
     <button class="btn btn-outline" style="color:#ef5350;border-color:rgba(232,72,85,0.3)" onclick="forceDraw()">⚡ 立即开奖</button>
@@ -1206,22 +1211,12 @@ async function setDrawTime() {
   } catch(e) { toast('网络错误', 'error'); }
 }
 
-async function setDrawTime5min() {
-  if (!isAdminAuthenticated()) { showPasswordModal(); return; }
-  const d = new Date(); d.setMinutes(d.getMinutes() + 5); d.setSeconds(0, 0);
-  try {
-    const res = await fetch('/api/admin/config', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
-      body: JSON.stringify({ drawTime: d.toISOString() }),
-    });
-    const data = await res.json();
-    if (!res.ok) { toast(data.error, 'error'); return; }
-    lastDrawn = false;
-    await pollState();
-    document.getElementById('adminPanel').classList.remove('show');
-    toast('⏱ 开奖时间已设为 5 分钟后', 'success');
-  } catch(e) { toast('网络错误', 'error'); }
+function quickSetTime(minutes) {
+  const d = new Date(Date.now() + minutes * 60000);
+  d.setSeconds(0, 0);
+  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  document.getElementById('drawTimeInput').value = local;
+  toast(`⏱ 已选: ${minutes} 分钟后`, 'info');
 }
 
 async function forceDraw() {
