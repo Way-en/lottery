@@ -9,8 +9,9 @@
 - 🕐 倒计时 → 到点自动开奖、滚动动画 + 彩带
 - 📝 报名 → 输入名字即可参与
 - 🔒 IP 限制 → 同网络只能报一次
-- 🏆 三个奖项 → 一等奖/二等奖/三等奖，人数可配
+- 🏆 奖项自由增删 → 最多 10 个，名字和人数在后台改，不用碰源码
 - 🔐 管理员后台 → 密码保护，设时间/奖项/开奖/导出 CSV
+- 🛡 源码数据不外泄 → 静态文件白名单，`data.json` / `server.js` 一律 404
 - 📱 移动端适配 → 手机打开跟小程序一样
 - ⚡ 快捷设时间 → 5/10/15/30 分钟一键设定
 - 🔗 二维码分享 → `npx qrcode` 一键生成
@@ -40,7 +41,13 @@
   → IP 限制：同 IP 只能报一次
 
 问题：Render 休眠后数据全丢
-  → JSON 文件持久化 + 开奖前挂个浏览器页面保活
+  → JSON 文件持久化 + UptimeRobot 定时唤醒
+
+问题：任何人都能下载 data.json，里面存着所有人的 IP
+  → 静态文件改白名单，只放行页面和素材
+
+问题：名单排前面的人中奖概率几乎翻倍
+  → 换掉有偏的 sort 洗牌，改成 Fisher-Yates
 ```
 
 最终架构：
@@ -93,6 +100,30 @@ let ipMap = { '123.45.67.89': '小明' };
 
 // 一人一奖：从一等奖开始抽，中奖者从候选池移除
 // 每人最多中一个奖
+```
+
+### 公平抽奖
+
+```javascript
+// ❌ 不要这样洗牌：sort(() => Math.random() - 0.5)
+// 结果不是均匀分布，实测名单第一个人的中奖率高达 19%（应该 10%）
+
+// ✅ Fisher-Yates + 密码学随机数
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = crypto.randomInt(i + 1);
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// 整个名单打乱一次，再按奖项依次切分，一人最多中一个奖
+let pool = shuffle(participants);
+for (const prize of prizes) {
+  prize.winners = pool.slice(0, prize.count);
+  pool = pool.slice(prize.count);
+}
 ```
 
 ### 管理员机制

@@ -99,14 +99,23 @@ function scheduleDraw() {
   }
 }
 
+// Fisher-Yates 洗牌 + 密码学随机数，保证每个人被抽中的概率完全相等
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = crypto.randomInt(i + 1);
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 function executeDraw() {
   if (state.drawn) return;
-  const pool = [...state.participants];
+  let pool = shuffle(state.participants);  // 整个名单打乱一次，然后按奖项依次切分
   for (const prize of state.prizes) {
-    const shuffled = pool.sort(() => Math.random() - 0.5);
     const count = Math.min(prize.count, pool.length);
-    prize.winners = shuffled.slice(0, count);
-    pool.splice(0, count);  // 中奖者从池子移除，不参与后续奖项
+    prize.winners = pool.slice(0, count);
+    pool = pool.slice(count);  // 中奖者从池子移除，不参与后续奖项
   }
   state.drawn = true;
   saveState();
@@ -134,6 +143,17 @@ const mime = {
   '.svg': 'image/svg+xml',
   '.ico': 'image/x-icon',
 };
+
+// ===== 静态文件白名单 =====
+// 只放行页面和素材，源码 / 数据 / 密码一律 404（防止别人下载 data.json 拿到 IP）
+const PRIVATE_FILES = new Set([
+  'server.js', 'data.json', 'pw.txt', 'package.json',
+  'package-lock.json', 'README.md', '.gitignore',
+]);
+const PUBLIC_EXT = new Set([
+  '.html', '.css', '.js', '.png', '.jpg', '.jpeg',
+  '.gif', '.svg', '.ico', '.webp', '.woff', '.woff2',
+]);
 
 // ===== 工具函数 =====
 function jsonResponse(res, code, data) {
@@ -169,7 +189,7 @@ http.createServer(async (req, res) => {
       const publicState = {
         drawTime: state.drawTime,
         participantsCount: state.participants.length,
-        participants: state.participants.slice(-50),
+        participants: state.participants,
         prizes: state.prizes.map(p => ({
           name: p.name, count: p.count, winners: p.winners,
         })),
@@ -247,15 +267,33 @@ http.createServer(async (req, res) => {
         state.ipLimit = !!body.ipLimit;
         if (!state.ipLimit) state.ipMap = {};  // 关闭限制时清空 IP 记录
       }
+      // 奖项由前端整份提交，支持任意增删（1~10 个）
       if (body.prizes && Array.isArray(body.prizes)) {
-        for (let i = 0; i < state.prizes.length; i++) {
-          if (body.prizes[i]) {
-            if (body.prizes[i].name) state.prizes[i].name = body.prizes[i].name;
-            if (body.prizes[i].count >= 0 && body.prizes[i].count <= 100) {
-              state.prizes[i].count = body.prizes[i].count;
-            }
-          }
+        if (body.prizes.length === 0) {
+          return jsonResponse(res, 400, { error: '至少保留一个奖项' });
         }
+        if (body.prizes.length > 10) {
+          return jsonResponse(res, 400, { error: '最多 10 个奖项' });
+        }
+        const next = body.prizes.map((p, i) => {
+          let count = parseInt(p && p.count, 10);
+          if (!Number.isFinite(count) || count < 0) count = 0;
+          if (count > 100) count = 100;
+          return {
+            name: String((p && p.name) || '').trim().slice(0, 12) || `奖项${i + 1}`,
+            count,
+            winners: [],
+          };
+        });
+        // 奖项结构没变（只改了人数）就保留已开奖结果，结构变了就作废重抽
+        const sameStructure = next.length === state.prizes.length &&
+          next.every((p, i) => p.name === state.prizes[i].name);
+        if (sameStructure) {
+          next.forEach((p, i) => { p.winners = state.prizes[i].winners || []; });
+        } else {
+          state.drawn = false;
+        }
+        state.prizes = next;
       }
       if (body.drawTime) {
         const newTime = new Date(body.drawTime).getTime();
@@ -345,15 +383,29 @@ http.createServer(async (req, res) => {
       return res.end(csv);
     }
 
-    // ---- 静态文件 ----
-    let filePath = path.join(DIR, url.pathname === '/' ? 'lottery.html' : url.pathname.split('?')[0]);
+    // ---- 静态文件（白名单） ----
+    const reqName = url.pathname === '/' ? '/lottery.html' : decodeURIComponent(url.pathname);
+    const baseName = path.basename(reqName);
+    const ext = path.extname(baseName).toLowerCase();
+    if (PRIVATE_FILES.has(baseName) || baseName.startsWith('.') || !PUBLIC_EXT.has(ext)) {
+      res.writeHead(404);
+      return res.end('Not Found');
+    }
+
+    const filePath = path.resolve(DIR, '.' + reqName);
+    const root = path.resolve(DIR);
+    // 防止 ../../ 越界读取
+    if (filePath !== root && !filePath.startsWith(root + path.sep)) {
+      res.writeHead(404);
+      return res.end('Not Found');
+    }
+
     fs.readFile(filePath, (err, data) => {
       if (err) {
         res.writeHead(404);
         res.end('Not Found');
         return;
       }
-      const ext = path.extname(filePath);
       res.writeHead(200, { 'Content-Type': mime[ext] || 'application/octet-stream' });
       res.end(data);
     });

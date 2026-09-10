@@ -490,6 +490,20 @@
     outline: none;
   }
   .admin-panel input:focus { border-color: var(--gold); }
+  .prize-del {
+    flex: 0 0 auto;
+    width: 26px; height: 26px;
+    padding: 0;
+    background: transparent;
+    border: 1px solid rgba(232, 72, 85, 0.35);
+    border-radius: 6px;
+    color: #e84855;
+    font-size: 0.75em;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .prize-del:hover:not(:disabled) { background: rgba(232, 72, 85, 0.08); }
+  .prize-del:disabled { opacity: 0.25; cursor: not-allowed; border-color: #ddd; color: #999; }
   .admin-actions {
     display: flex;
     gap: 6px;
@@ -637,27 +651,11 @@
 <button class="admin-toggle" id="adminToggle" title="管理" onclick="toggleAdmin()">⚙</button>
 <div class="admin-panel" id="adminPanel">
   <h3>🔧 抽奖管理</h3>
-  <label>🏆 奖项设置</label>
-  <div id="prizeConfigs">
-    <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center;">
-      <span style="color:#888;font-size:0.7em;min-width:40px;">🥇</span>
-      <input type="text" id="prize0name" value="一等奖" maxlength="12" style="flex:2;margin-bottom:0;">
-      <input type="number" id="prize0count" value="1" min="0" max="100" style="flex:1;width:auto;margin-bottom:0;text-align:center;" title="中奖人数">
-      <span style="color:#666;font-size:0.65em;">人</span>
-    </div>
-    <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center;">
-      <span style="color:#888;font-size:0.7em;min-width:40px;">🥈</span>
-      <input type="text" id="prize1name" value="二等奖" maxlength="12" style="flex:2;margin-bottom:0;">
-      <input type="number" id="prize1count" value="2" min="0" max="100" style="flex:1;width:auto;margin-bottom:0;text-align:center;">
-      <span style="color:#666;font-size:0.65em;">人</span>
-    </div>
-    <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center;">
-      <span style="color:#888;font-size:0.7em;min-width:40px;">🥉</span>
-      <input type="text" id="prize2name" value="三等奖" maxlength="12" style="flex:2;margin-bottom:0;">
-      <input type="number" id="prize2count" value="3" min="0" max="100" style="flex:1;width:auto;margin-bottom:0;text-align:center;">
-      <span style="color:#666;font-size:0.65em;">人</span>
-    </div>
-  </div>
+  <label style="display:flex;align-items:center;justify-content:space-between;">
+    <span>🏆 奖项设置</span>
+    <button class="btn btn-outline btn-sm" onclick="addPrizeRow()" style="font-size:0.65em;padding:2px 8px;">➕ 添加奖项</button>
+  </label>
+  <div id="prizeConfigs"></div>
   <label style="display:flex;align-items:center;justify-content:space-between;">
     🔒 IP 限制
     <span id="ipLimitToggle" onclick="toggleIpLimit()" style="cursor:pointer;font-size:1.4em;user-select:none;">✅</span>
@@ -689,6 +687,7 @@ let state = null;           // 从服务器拉取
 let adminToken = sessionStorage.getItem('admin_token') || null;
 let isDrawing = false;
 let lastDrawn = false;      // 跟踪上一次的开奖状态
+let adminDirty = false;     // 管理员改过表单 → 轮询不再覆盖，防止输入被打断
 let pollTimer = null;
 
 // 从服务器获取最新状态
@@ -1049,12 +1048,14 @@ function startPolling() {
 function isAdminAuthenticated() { return !!adminToken; }
 
 function toggleAdmin() {
-  if (isAdminAuthenticated()) {
-    document.getElementById('adminPanel').classList.toggle('show');
-  } else {
-    showPasswordModal();
-  }
+  if (!isAdminAuthenticated()) { showPasswordModal(); return; }
+  const panel = document.getElementById('adminPanel');
+  if (panel.classList.contains('show')) panel.classList.remove('show');
+  else openAdminPanel();
 }
+
+// 管理员一旦动过表单，就标记为"正在编辑"
+document.getElementById('adminPanel').addEventListener('input', () => { adminDirty = true; });
 
 function showPasswordModal() {
   document.getElementById('passwordModal').classList.remove('hidden');
@@ -1086,7 +1087,7 @@ async function verifyPassword() {
     adminToken = data.token;
     sessionStorage.setItem('admin_token', adminToken);
     closePasswordModal();
-    document.getElementById('adminPanel').classList.add('show');
+    openAdminPanel();
     toast('✅ 验证成功', 'success');
   } catch(e) {
     errorEl.textContent = '网络错误';
@@ -1167,38 +1168,100 @@ async function toggleIpLimit() {
   } catch(e) { toast('网络错误', 'error'); }
 }
 
+// ===== 奖项配置（可自由增删） =====
+const PRIZE_ICONS = ['🥇', '🥈', '🥉', '🎖️', '🏅', '🎀', '⭐', '🌟', '💎', '🎁'];
+const MAX_PRIZES = 10;
+
+function escapeAttr(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function prizeRowHtml(name, count) {
+  return `
+    <span class="prize-icon" style="color:#888;font-size:0.7em;min-width:22px;"></span>
+    <input type="text" class="prize-name" value="${escapeAttr(name)}" maxlength="12" placeholder="奖项名" style="flex:2;margin-bottom:0;">
+    <input type="number" class="prize-count" value="${count}" min="0" max="100" style="flex:1;width:auto;margin-bottom:0;text-align:center;" title="中奖人数">
+    <span style="color:#666;font-size:0.65em;">人</span>
+    <button class="prize-del" onclick="removePrizeRow(this)" title="删除该奖项">✕</button>`;
+}
+
+function refreshPrizeRows() {
+  const rows = document.querySelectorAll('#prizeConfigs .prize-row');
+  rows.forEach((r, i) => {
+    const icon = r.querySelector('.prize-icon');
+    if (icon) icon.textContent = PRIZE_ICONS[i] || '🏆';
+    const del = r.querySelector('.prize-del');
+    if (del) del.disabled = rows.length <= 1;  // 只剩一个时不给删
+  });
+}
+
+function renderPrizeConfigs(prizes) {
+  const list = (prizes && prizes.length) ? prizes : [{ name: '一等奖', count: 1 }];
+  document.getElementById('prizeConfigs').innerHTML = list.map(p => `
+    <div class="prize-row" style="display:flex;gap:6px;margin-bottom:6px;align-items:center;">
+      ${prizeRowHtml(p.name, p.count)}
+    </div>`).join('');
+  refreshPrizeRows();
+}
+
+function addPrizeRow() {
+  const rows = document.querySelectorAll('#prizeConfigs .prize-row');
+  if (rows.length >= MAX_PRIZES) { toast(`最多 ${MAX_PRIZES} 个奖项`, 'error'); return; }
+  const div = document.createElement('div');
+  div.className = 'prize-row';
+  div.style.cssText = 'display:flex;gap:6px;margin-bottom:6px;align-items:center;';
+  div.innerHTML = prizeRowHtml(`奖项${rows.length + 1}`, 1);
+  document.getElementById('prizeConfigs').appendChild(div);
+  adminDirty = true;
+  refreshPrizeRows();
+}
+
+function removePrizeRow(btn) {
+  const rows = document.querySelectorAll('#prizeConfigs .prize-row');
+  if (rows.length <= 1) { toast('至少保留一个奖项', 'error'); return; }
+  btn.closest('.prize-row').remove();
+  adminDirty = true;
+  refreshPrizeRows();
+}
+
+function readPrizeConfigs() {
+  return [...document.querySelectorAll('#prizeConfigs .prize-row')].map(r => ({
+    name: r.querySelector('.prize-name').value.trim(),
+    count: parseInt(r.querySelector('.prize-count').value, 10) || 0,
+  }));
+}
+
+// 面板只在打开时同步一次，之后完全交给管理员
+function openAdminPanel() {
+  renderPrizeConfigs(state ? state.prizes : null);
+  document.getElementById('adminPanel').classList.add('show');
+  adminDirty = false;
+  updateAdminPanelTime();
+}
+
 function updateAdminPanelTime() {
   if (!state) return;
-  // 管理员正在编辑时不覆盖，防止输入被打断
-  const active = document.activeElement;
   const panel = document.getElementById('adminPanel');
-  if (panel.classList.contains('show') && active && active.closest('#adminPanel')) return;
+  if (!panel.classList.contains('show')) return;  // 面板没开就不用管
+  if (adminDirty) return;                         // 管理员正在改，轮询不许覆盖
 
   const d = new Date(state.drawTime);
   const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
   document.getElementById('drawTimeInput').value = local;
-  const prizes = state.prizes || [];
-  for (let i = 0; i < 3; i++) {
-    const nameEl = document.getElementById(`prize${i}name`);
-    const countEl = document.getElementById(`prize${i}count`);
-    if (nameEl && prizes[i]) nameEl.value = prizes[i].name || '';
-    if (countEl && prizes[i]) countEl.value = prizes[i].count || 0;
-  }
 }
 
 async function setDrawTime() {
   if (!isAdminAuthenticated()) { showPasswordModal(); return; }
+
+  const prizes = readPrizeConfigs();
+  if (prizes.length === 0) { toast('至少保留一个奖项', 'error'); return; }
+  if (prizes.some(p => !p.name)) { toast('奖项名字不能为空', 'error'); return; }
+
   const val = document.getElementById('drawTimeInput').value;
   if (!val) { toast('请选择开奖时间', 'error'); return; }
   if (new Date(val).getTime() <= Date.now()) { toast('开奖时间必须在未来', 'error'); return; }
-
-  const prizes = [];
-  for (let i = 0; i < 3; i++) {
-    prizes.push({
-      name: document.getElementById(`prize${i}name`).value.trim() || `奖项${i + 1}`,
-      count: parseInt(document.getElementById(`prize${i}count`).value) || 0,
-    });
-  }
 
   try {
     const res = await fetch('/api/admin/config', {
@@ -1209,6 +1272,7 @@ async function setDrawTime() {
     const data = await res.json();
     if (!res.ok) { toast(data.error, 'error'); return; }
 
+    adminDirty = false;
     lastDrawn = false;
     await pollState();
     document.getElementById('adminPanel').classList.remove('show');
