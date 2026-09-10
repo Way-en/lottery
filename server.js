@@ -7,6 +7,10 @@ const PORT = process.env.PORT || 8080;
 const DIR = process.argv[2] || __dirname;
 const DATA_FILE = path.join(DIR, 'data.json');
 
+// 进程启动时间。服务器每次重启（含休眠唤醒）都会变，
+// 用来判断 Render 有没有睡着 —— 盯着它不变就说明保活生效了。
+const STARTED_AT = new Date().toISOString();
+
 // ===== 🔧 默认配置（改这里就行） =====
 const CONFIG = {
   // 开奖时间：距现在多少分钟后（修改这个数字）
@@ -195,6 +199,7 @@ http.createServer(async (req, res) => {
         })),
         drawn: state.drawn,
         ipLimit: state.ipLimit,
+        startedAt: STARTED_AT,   // 服务器启动时间，变了 = 中间睡过
       };
       return jsonResponse(res, 200, publicState);
     }
